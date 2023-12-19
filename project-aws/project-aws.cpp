@@ -144,8 +144,8 @@ int main(int argc, char** argv) {
         clientConfig.region = Region::AP_SOUTHEAST_1;
         clientConfig.scheme = Http::Scheme::HTTPS;
 
-        clientConfig.proxyUserName = Aws::String("AKIAQVRKOSAV3GMXAQ32");
-        clientConfig.proxyPassword = Aws::String("LvU7SjJUWXjYp2+d27oWy6cfn8ouY71012KCyIan");
+        clientConfig.proxyUserName = Aws::String("UserName");
+        clientConfig.proxyPassword = Aws::String("Password");
 
         Aws::S3::S3Client s3_client(clientConfig);
 
