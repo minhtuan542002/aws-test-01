@@ -24,118 +24,152 @@ using namespace Aws::Auth;
  */
 
  /**
- * Check if file exists
- *
- * Note: If using C++17, can use std::filesystem::exists()
+ *  An AWS service class to encapsulate simple operations with S3 buckets and objects 
  */
-inline bool file_exists(const std::string& name)
-{
-    struct stat buffer;
-    return (stat(name.c_str(), &buffer) == 0);
-}
+class ServiceS3 {
+    private:
+        /**
+        *  S3 Client instance 
+        */
+        Aws::S3::S3Client* s3_client;
 
- /**
- * Put an object into an Amazon S3 bucket
- */
-bool put_s3_object(const Aws::String& s3_bucket_name,
-    const Aws::String& s3_object_name,
-    const std::string& file_name,
-    const Aws::Client::ClientConfiguration& clientConfig)
-{
-    // Verify file_name exists
-    if (!file_exists(file_name)) {
-        std::cout << "ERROR: NoSuchFile: The specified file does not exist"
-            << std::endl;
-        //return false;
-    }
-
-    Aws::S3::S3Client s3_client(clientConfig);
-
-    Aws::S3::Model::PutObjectRequest object_request;
-
-    object_request.SetBucket(s3_bucket_name);
-    object_request.SetKey(s3_object_name);
-    const std::shared_ptr<Aws::IOStream> input_data =
-        Aws::MakeShared<Aws::FStream>("SampleAllocationTag",
-            file_name.c_str(),
-            std::ios_base::in | std::ios_base::binary);
-    object_request.SetBody(input_data);
-
-    // Put the object
-    auto put_object_outcome = s3_client.PutObject(object_request);
-    if (!put_object_outcome.IsSuccess()) {
-        auto error = put_object_outcome.GetError();
-        std::cout << "ERROR: " << error.GetExceptionName() << ": "
-            << error.GetMessage() << std::endl;
-        return false;
-    }
-    return true;
-    // snippet-end:[s3.cpp.put_object.code]
-}
-
-bool ListObjects(const Aws::String& bucketName,
-    const Aws::Client::ClientConfiguration& clientConfig) 
-{
-    Aws::S3::S3Client s3_client(clientConfig);
-
-    Aws::S3::Model::ListObjectsRequest request;
-    request.WithBucket(bucketName);
-
-    auto outcome = s3_client.ListObjects(request);
-
-    if (!outcome.IsSuccess()) {
-        std::cerr << "Error: ListObjects: " <<
-            outcome.GetError().GetMessage() << std::endl;
-    }
-    else {
-        Aws::Vector<Aws::S3::Model::Object> objects =
-            outcome.GetResult().GetContents();
-
-        for (Aws::S3::Model::Object& object : objects) {
-            std::cout << object.GetKey() << std::endl;
+        /**
+        * Check if file exists
+        */
+        inline bool fileExists(const std::string& name)
+        {
+            struct stat buffer;
+            return (stat(name.c_str(), &buffer) == 0);
         }
-    }
 
-    return outcome.IsSuccess();
-}
+    public:
 
-bool GetObject(const Aws::String& objectKey,
-    const Aws::String& fromBucket,
-    const Aws::Client::ClientConfiguration& clientConfig) {
-    Aws::S3::S3Client client(clientConfig);
+        /**
+        * Constructor method
+        */
+        ServiceS3(const Aws::Client::ClientConfiguration& clientConfig)
+        {
+            s3_client = new Aws::S3::S3Client(clientConfig);
+            
+        }
+         /**
+         * Put an object into an Amazon S3 bucket
+         */
+        bool putObject(const Aws::String& bucketName,
+            const Aws::String& objectName,
+            const std::string& fileName)
+        {
+            // Verify fileName exists
+            if (!fileExists(fileName)) {
+                std::cout << "ERROR: NoSuchFile: The specified file does not exist"
+                    << std::endl;
+                //return false;
+            }            
 
-    Aws::S3::Model::GetObjectRequest request;
-    request.SetBucket(fromBucket);
-    request.SetKey(objectKey);
+            Aws::S3::Model::PutObjectRequest objectRequest;
 
-    Aws::S3::Model::GetObjectOutcome outcome =
-        client.GetObject(request);
+            objectRequest.SetBucket(bucketName);
+            objectRequest.SetKey(objectName);
+            const std::shared_ptr<Aws::IOStream> inputData =
+                Aws::MakeShared<Aws::FStream>("SampleAllocationTag",
+                    fileName.c_str(),
+                    std::ios_base::in | std::ios_base::binary);
+            objectRequest.SetBody(inputData);
 
-    if (!outcome.IsSuccess()) {
-        const Aws::S3::S3Error& err = outcome.GetError();
-        std::cerr << "Error: GetObject: " <<
-            err.GetExceptionName() << ": " << err.GetMessage() << std::endl;
-    }
-    else {
-        std::cout << "Successfully retrieved '" << objectKey << "' from '"
-            << fromBucket << "'." << std::endl;
+            // Put the object
+            auto put_object_outcome = s3_client->PutObject(objectRequest);
+            if (!put_object_outcome.IsSuccess()) {
+                auto error = put_object_outcome.GetError();
+                std::cout << "ERROR: " << error.GetExceptionName() << ": "
+                    << error.GetMessage() << std::endl;
+                return false;
+            }
+            return true;
+            // snippet-end:[s3.cpp.put_object.code]
+        }
 
-        std::string local_file_name = "/root/out/" + objectKey;
-        std::ofstream local_file(local_file_name, std::ios::binary);
-        auto& retrieved = outcome.GetResult().GetBody();
-        local_file << retrieved.rdbuf();
-        std::cout << "Done!";
-    }
+        bool listObjects(const Aws::String& bucketName) 
+        {
+            Aws::S3::Model::ListObjectsRequest request;
+            request.WithBucket(bucketName);
 
-    return outcome.IsSuccess();
-}
+            auto outcome = s3_client->ListObjects(request);
 
+            if (!outcome.IsSuccess()) {
+                std::cerr << "Error: ListObjects: " <<
+                    outcome.GetError().GetMessage() << std::endl;
+            }
+            else {
+                Aws::Vector<Aws::S3::Model::Object> objects =
+                    outcome.GetResult().GetContents();
+
+                for (Aws::S3::Model::Object& object : objects) {
+                    std::cout << object.GetKey() << std::endl;
+                }
+            }
+
+            return outcome.IsSuccess();
+        }
+
+        bool listBuckets()
+        {
+            auto outcome = s3_client->ListBuckets();
+
+            if (!outcome.IsSuccess()) {
+                std::cerr << "Failed with error: " << outcome.GetError() << std::endl;
+            }
+            else {
+                std::cout << "Found " << outcome.GetResult().GetBuckets().size()
+                    << " buckets\n";
+                for (auto& bucket : outcome.GetResult().GetBuckets()) {
+                    std::cout << bucket.GetName() << std::endl;
+                }
+            }
+            return outcome.IsSuccess();
+        }
+
+        bool getObject(const Aws::String& objectKey,
+            const Aws::String& fromBucket) 
+        {
+            Aws::S3::Model::GetObjectRequest request;
+            request.SetBucket(fromBucket);
+            request.SetKey(objectKey);
+
+            Aws::S3::Model::GetObjectOutcome outcome =
+                s3_client->GetObject(request);
+
+            if (!outcome.IsSuccess()) {
+                const Aws::S3::S3Error& err = outcome.GetError();
+                std::cerr << "Error: GetObject: " <<
+                    err.GetExceptionName() << ": " << err.GetMessage() << std::endl;
+            }
+            else {
+                std::cout << "Successfully retrieved '" << objectKey << "' from '"
+                    << fromBucket << "'." << std::endl;
+
+                std::string local_fileName = "/root/out/" + objectKey;
+                std::ofstream local_file(local_fileName, std::ios::binary);
+                auto& retrieved = outcome.GetResult().GetBody();
+                local_file << retrieved.rdbuf();
+                std::cout << "Done!";
+            }
+
+            return outcome.IsSuccess();
+        }
+
+        /**
+        * Free up resources in class
+        */
+        void free()
+        {
+            delete s3_client;
+        }
+};
 int main(int argc, char** argv) {
     Aws::SDKOptions options;
     // Optionally change the log level for debugging.
-//   options.loggingOptions.logLevel = Utils::Logging::LogLevel::Debug;
+    // options.loggingOptions.logLevel = Utils::Logging::LogLevel::Debug;
     Aws::InitAPI(options); // Should only be called once.
-
 
     int result = 0;
     {
@@ -144,47 +178,27 @@ int main(int argc, char** argv) {
         clientConfig.region = Region::AP_SOUTHEAST_1;
         clientConfig.scheme = Http::Scheme::HTTPS;
 
-        clientConfig.proxyUserName = Aws::String("UserName");
-        clientConfig.proxyPassword = Aws::String("Password");
+        ServiceS3 serviceS3(clientConfig);
 
-        Aws::S3::S3Client s3_client(clientConfig);
+        serviceS3.listBuckets();
 
         // Assign these values before running the program
-        const Aws::String bucket_name = "myawsbucket-tl";
-        const Aws::String object_name = "test01.txt";
-        const std::string file_name = "/root/test01.txt";
+        const Aws::String bucketName = "myawsbucket-tl";
+        const Aws::String objectName = "test01.txt";
+        const std::string fileName = "/root/test01.txt";
 
         // Put the file into the S3 bucket
-        if (put_s3_object(bucket_name, object_name, file_name, clientConfig)) {
-            std::cout << "Put file " << file_name
-                << " to S3 bucket " << bucket_name
-                << " as object " << object_name << std::endl;
+        if (serviceS3.putObject(bucketName, objectName, fileName)) {
+            std::cout << "Put file " << fileName
+                << " to S3 bucket " << bucketName
+                << " as object " << objectName << std::endl;
         }
 
-        auto provider = Aws::MakeShared<DefaultAWSCredentialsProviderChain>("alloc-tag");
-        auto creds = provider->GetAWSCredentials();
-        if (creds.IsEmpty()) {
-            std::cerr << "Failed authentication" << std::endl;
-        }
+        serviceS3.listObjects(bucketName);
 
-        Aws::S3::S3Client s3Client(clientConfig);
-        auto outcome = s3Client.ListBuckets();
+        serviceS3.getObject(objectName, bucketName);
 
-        if (!outcome.IsSuccess()) {
-            std::cerr << "Failed with error: " << outcome.GetError() << std::endl;
-            result = 1;
-        }
-        else {
-            std::cout << "Found " << outcome.GetResult().GetBuckets().size()
-                << " buckets\n";
-            for (auto& bucket : outcome.GetResult().GetBuckets()) {
-                std::cout << bucket.GetName() << std::endl;
-            }
-        }
-
-        ListObjects(bucket_name, clientConfig);
-
-        GetObject(object_name, bucket_name, clientConfig);
+        serviceS3.free();
         
     }
 
